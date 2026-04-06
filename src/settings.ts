@@ -62,7 +62,7 @@ export class MeetingDetectorSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Zoom")
-			.setDesc("Detect Zoom meetings.")
+			.setDesc("Detect running meetings.")
 			.addToggle((toggle) =>
 				toggle
 					.setValue(this.plugin.settings.enableZoom)
@@ -73,8 +73,8 @@ export class MeetingDetectorSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("Google Meet")
-			.setDesc("Detect Google Meet sessions via browser tab title.")
+			.setName("Google meet")
+			.setDesc("Detect running sessions via browser tab title.")
 			.addToggle((toggle) =>
 				toggle
 					.setValue(this.plugin.settings.enableGoogleMeet)
@@ -85,8 +85,8 @@ export class MeetingDetectorSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("Microsoft Teams")
-			.setDesc("Detect Microsoft Teams meetings.")
+			.setName("Microsoft teams")
+			.setDesc("Detect running meetings.")
 			.addToggle((toggle) =>
 				toggle
 					.setValue(this.plugin.settings.enableTeams)
@@ -148,11 +148,11 @@ export class MeetingDetectorSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("File name format")
 			.setDesc(
-				"Format string for the note file name (e.g., YYYY-MM-DD_HHmm_Meeting)."
+				"Format string for the note file name, e.g. `YYYY-MM-DD_HHmm_Meeting`."
 			)
 			.addText((text) =>
 				text
-					.setPlaceholder("YYYY-MM-DD_HHmm_Meeting")
+					.setPlaceholder("e.g. `YYYY-MM-DD_HHmm_Meeting`")
 					.setValue(this.plugin.settings.noteFileNameFormat)
 					.onChange(async (value) => {
 						this.plugin.settings.noteFileNameFormat = value;
