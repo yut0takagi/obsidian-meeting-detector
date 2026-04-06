@@ -60,7 +60,6 @@ export class MeetingDetectorSettingTab extends PluginSettingTab {
 		// --- Monitoring targets ---
 		new Setting(containerEl).setName("Monitoring").setHeading();
 
-		/* eslint-disable obsidianmd/ui/sentence-case -- product names */
 		new Setting(containerEl)
 			.setName("Zoom")
 			.setDesc("Detect Zoom meetings.")
@@ -147,7 +146,6 @@ export class MeetingDetectorSettingTab extends PluginSettingTab {
 					})
 			);
 
-		/* eslint-disable obsidianmd/ui/sentence-case -- format example */
 		new Setting(containerEl)
 			.setName("File name format")
 			.setDesc(
