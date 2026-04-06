@@ -1,0 +1,66 @@
+.meeting-detector-modal {
+	text-align: center;
+}
+
+.meeting-detector-modal h2 {
+	margin-bottom: 0.5em;
+}
+
+.meeting-detector-description {
+	color: var(--text-muted);
+	margin-bottom: 1.5em;
+}
+
+.meeting-detector-buttons {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5em;
+}
+
+.meeting-detector-btn {
+	padding: 0.6em 1em;
+	border-radius: 6px;
+	cursor: pointer;
+	font-size: 0.95em;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	transition: background 0.15s ease;
+}
+
+.meeting-detector-btn:hover {
+	background: var(--background-modifier-hover);
+}
+
+.meeting-detector-btn-record {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border-color: var(--interactive-accent);
+}
+
+.meeting-detector-btn-record:hover {
+	opacity: 0.9;
+	background: var(--interactive-accent);
+}
+
+.meeting-detector-btn-both {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border-color: var(--interactive-accent);
+}
+
+.meeting-detector-btn-both:hover {
+	opacity: 0.9;
+	background: var(--interactive-accent);
+}
+
+.meeting-detector-btn-dismiss {
+	background: transparent;
+	color: var(--text-muted);
+	border-color: transparent;
+}
+
+.meeting-detector-btn-dismiss:hover {
+	color: var(--text-normal);
+	background: var(--background-modifier-hover);
+}
