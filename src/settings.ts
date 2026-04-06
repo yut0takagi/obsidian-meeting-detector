@@ -95,7 +95,6 @@ export class MeetingDetectorSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
-		/* eslint-enable obsidianmd/ui/sentence-case */
 
 		// --- Polling interval ---
 		new Setting(containerEl)
@@ -160,7 +159,6 @@ export class MeetingDetectorSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
-		/* eslint-enable obsidianmd/ui/sentence-case */
 
 		// --- End action ---
 		new Setting(containerEl).setName("End behavior").setHeading();
