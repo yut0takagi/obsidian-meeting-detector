@@ -1,3 +1,4 @@
+/* global activeWindow -- Obsidian exposes this on the active (possibly popped-out) window; required by obsidianmd/commands timer rules */
 import { execFile } from "child_process";
 import type { MeetingDetectorSettings } from "./settings";
 
@@ -53,7 +54,7 @@ end if
 `;
 
 export class ProcessMonitor {
-	private intervalId: ReturnType<typeof setInterval> | null = null;
+	private intervalId: number | null = null;
 	private activeApps: Set<MeetingApp> = new Set();
 	private dismissedApps: Set<MeetingApp> = new Set();
 	private callback: MeetingCallback;
@@ -71,7 +72,7 @@ export class ProcessMonitor {
 		if (this.intervalId) return;
 		const settings = this.getSettings();
 		void this.poll();
-		this.intervalId = setInterval(
+		this.intervalId = activeWindow.setInterval(
 			() => void this.poll(),
 			settings.pollingIntervalSeconds * 1000
 		);
@@ -79,7 +80,7 @@ export class ProcessMonitor {
 
 	stop(): void {
 		if (this.intervalId) {
-			clearInterval(this.intervalId);
+			activeWindow.clearInterval(this.intervalId);
 			this.intervalId = null;
 		}
 	}
