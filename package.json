@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-meeting-detector",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "Auto-detect online meetings and prompt to record or create meeting notes.",
 	"main": "main.js",
 	"type": "module",
