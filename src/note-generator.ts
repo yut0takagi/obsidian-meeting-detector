@@ -1,29 +1,8 @@
-import { App, TFile, moment } from "obsidian";
+import { App, TFile, moment, normalizePath } from "obsidian";
 import type { MeetingDetectorSettings } from "./settings";
 import type { MeetingApp } from "./process-monitor";
-
-const DEFAULT_TEMPLATE = `# Meeting Note
-
-- **Date**: {{date}}
-- **Time**: {{time}}
-- **App**: {{app}}
-
-## Attendees
-
--
-
-## Agenda
-
--
-
-## Notes
-
-
-
-## Action Items
-
-- [ ]
-`;
+import { formatFileName, uniqueBaseNameAsync } from "./file-name";
+import { DEFAULT_TEMPLATE, fillTemplate, notePath } from "./note-template";
 
 export class NoteGenerator {
 	private app: App;
@@ -34,21 +13,33 @@ export class NoteGenerator {
 		this.getSettings = getSettings;
 	}
 
-	async create(meetingApp: MeetingApp): Promise<TFile> {
+	async create(meetingApp: MeetingApp, title: string): Promise<TFile> {
 		const settings = this.getSettings();
 		const now = moment();
+		const noteTitle = title.trim() || `${meetingApp} meeting`;
 
-		const fileName = now.format(settings.noteFileNameFormat) + ".md";
-		const folderPath = settings.notesFolderPath || "Meetings";
-		const filePath = `${folderPath}/${fileName}`;
-
+		const baseName = formatFileName(settings.noteFileNameFormat, {
+			format: (tokens) => now.format(tokens),
+			title: noteTitle,
+			fallback: "Meeting",
+		});
+		const folderPath = normalizePath(settings.notesFolderPath.trim() || "Meetings");
 		await this.ensureFolder(folderPath);
 
-		let content = await this.getTemplateContent();
-		content = this.replaceVariables(content, now, meetingApp);
+		// The adapter follows the file system's case rules, so "sync.md" and "Sync.md" collide as they would on disk.
+		const adapter = this.app.vault.adapter;
+		const fileName = await uniqueBaseNameAsync(baseName, (candidate) =>
+			adapter.exists(notePath(folderPath, candidate))
+		);
 
-		const file = await this.app.vault.create(filePath, content);
-		return file;
+		const content = fillTemplate(await this.getTemplateContent(), {
+			date: now.format("YYYY-MM-DD"),
+			time: now.format("HH:mm"),
+			app: meetingApp,
+			title: noteTitle,
+		});
+
+		return await this.app.vault.create(notePath(folderPath, fileName), content);
 	}
 
 	private async getTemplateContent(): Promise<string> {
@@ -67,18 +58,8 @@ export class NoteGenerator {
 		return DEFAULT_TEMPLATE;
 	}
 
-	private replaceVariables(
-		content: string,
-		now: moment.Moment,
-		meetingApp: MeetingApp
-	): string {
-		return content
-			.replace(/\{\{date\}\}/g, now.format("YYYY-MM-DD"))
-			.replace(/\{\{time\}\}/g, now.format("HH:mm"))
-			.replace(/\{\{app\}\}/g, meetingApp);
-	}
-
 	private async ensureFolder(folderPath: string): Promise<void> {
+		if (folderPath === "/") return;
 		const parts = folderPath.split("/");
 		let current = "";
 		for (const part of parts) {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatFileName, sanitizeFileName, uniqueBaseName } from "../src/file-name";
+import { formatFileName, sanitizeFileName, uniqueBaseName, uniqueBaseNameAsync } from "../src/file-name";
 
 // Stands in for moment().format() at 2026-10-16 09:05 (moment cannot be imported in tests).
 const VALUES: Record<string, string> = { YYYY: "2026", MM: "10", DD: "16", HH: "09", mm: "05" };
@@ -53,5 +53,12 @@ describe("uniqueBaseName", () => {
 		const taken = new Set(["2026-10-16_Sync", "2026-10-16_Sync 1"]);
 		expect(uniqueBaseName("2026-10-16_Sync", (n) => taken.has(n))).toBe("2026-10-16_Sync 2");
 		expect(uniqueBaseName("free", () => false)).toBe("free");
+	});
+});
+
+describe("uniqueBaseNameAsync", () => {
+	it("checks candidates with an async lookup (e.g. the vault adapter)", async () => {
+		const taken = new Set(["Sync", "Sync 1"]);
+		await expect(uniqueBaseNameAsync("Sync", async (n) => taken.has(n))).resolves.toBe("Sync 2");
 	});
 });

@@ -64,3 +64,12 @@
 	color: var(--text-normal);
 	background: var(--background-modifier-hover);
 }
+
+.meeting-detector-modal .setting-item {
+	text-align: start;
+	margin-bottom: 1em;
+}
+
+.meeting-detector-title {
+	width: 100%;
+}

@@ -103,6 +103,19 @@ export function uniqueBaseName(base: string, taken: (candidate: string) => boole
 	return `${base} ${Date.now()}`;
 }
 
+/** Like uniqueBaseName, for lookups that are async (e.g. the vault adapter, which matches the file system's case rules). */
+export async function uniqueBaseNameAsync(
+	base: string,
+	taken: (candidate: string) => Promise<boolean>
+): Promise<string> {
+	if (!(await taken(base))) return base;
+	for (let n = 1; n < 1000; n++) {
+		const candidate = `${base} ${n}`;
+		if (!(await taken(candidate))) return candidate;
+	}
+	return `${base} ${Date.now()}`;
+}
+
 function isAsciiLetter(ch: string): boolean {
 	return /^[A-Za-z]$/.test(ch);
 }
