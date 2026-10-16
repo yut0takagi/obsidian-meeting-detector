@@ -13,6 +13,8 @@ export interface MeetingDetectorSettings {
 	noteFileNameFormat: string;
 	endAction: EndAction;
 	pluginEnabled: boolean;
+	/** Do not announce apps that were already running when Obsidian started (e.g. Zoom kept open all day). */
+	ignoreRunningAtStartup: boolean;
 }
 
 export const DEFAULT_SETTINGS: MeetingDetectorSettings = {
@@ -25,6 +27,7 @@ export const DEFAULT_SETTINGS: MeetingDetectorSettings = {
 	noteFileNameFormat: "YYYY-MM-DD_HHmm_Meeting",
 	endAction: "notice",
 	pluginEnabled: true,
+	ignoreRunningAtStartup: false,
 };
 
 export class MeetingDetectorSettingTab extends PluginSettingTab {

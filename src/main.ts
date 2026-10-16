@@ -32,9 +32,8 @@ export default class MeetingDetectorPlugin extends Plugin {
 			id: "check-meetings-now",
 			name: "Check for meetings now",
 			callback: () => {
-				this.monitor.clearDismissed();
-				this.monitor.restart();
 				new Notice("Checking for meetings...");
+				void this.monitor.checkNow();
 			},
 		});
 
