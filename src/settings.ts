@@ -1,5 +1,6 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import type MeetingDetectorPlugin from "./main";
+import { isSystemRecordingEnabled, type RecorderChoice } from "./recorder-backend";
 
 export type EndAction = "stop-recording" | "notice" | "none";
 
@@ -13,6 +14,11 @@ export interface MeetingDetectorSettings {
 	noteFileNameFormat: string;
 	endAction: EndAction;
 	pluginEnabled: boolean;
+	/** Do not announce apps that were already running when Obsidian started (e.g. Zoom kept open all day). */
+	ignoreRunningAtStartup: boolean;
+	/** Also show a system notification when Obsidian is in the background. */
+	desktopNotification: boolean;
+	recorder: RecorderChoice;
 }
 
 export const DEFAULT_SETTINGS: MeetingDetectorSettings = {
@@ -22,9 +28,12 @@ export const DEFAULT_SETTINGS: MeetingDetectorSettings = {
 	pollingIntervalSeconds: 5,
 	templateFilePath: "",
 	notesFolderPath: "Meetings",
-	noteFileNameFormat: "YYYY-MM-DD_HHmm_Meeting",
+	noteFileNameFormat: "YYYY-MM-DD_{{title}}",
 	endAction: "notice",
 	pluginEnabled: true,
+	ignoreRunningAtStartup: false,
+	desktopNotification: true,
+	recorder: "core",
 };
 
 export class MeetingDetectorSettingTab extends PluginSettingTab {
@@ -114,6 +123,59 @@ export class MeetingDetectorSettingTab extends PluginSettingTab {
 					})
 			);
 
+		new Setting(containerEl)
+			.setName("Ignore apps already running at startup")
+			.setDesc(
+				"Useful if you keep a meeting app open all day. Apps that are running when Obsidian starts are not announced until they quit and start again."
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.ignoreRunningAtStartup)
+					.onChange(async (value) => {
+						this.plugin.settings.ignoreRunningAtStartup = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Desktop notification")
+			.setDesc("Also show a system notification when Obsidian is in the background.")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.desktopNotification)
+					.onChange(async (value) => {
+						this.plugin.settings.desktopNotification = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		// --- Recording ---
+		new Setting(containerEl).setName("Recording").setHeading();
+
+		const systemRecordingEnabled = isSystemRecordingEnabled(this.app);
+		new Setting(containerEl)
+			.setName("Record with")
+			.setDesc(
+				systemRecordingEnabled
+					? "The core audio recorder records only your microphone. The system recording plugin also records the other participants (system audio), even with headphones."
+					: "The core audio recorder records only your microphone. To also record the other participants (system audio), install and enable the system recording plugin."
+			)
+			.addDropdown((dropdown) => {
+				dropdown.addOption("core", "Core audio recorder");
+				if (systemRecordingEnabled) {
+					dropdown.addOption("system-recording", "System recording plugin");
+				}
+				dropdown
+					.setValue(
+						systemRecordingEnabled ? this.plugin.settings.recorder : "core"
+					)
+					.onChange(async (value) => {
+						this.plugin.settings.recorder =
+							value === "system-recording" ? "system-recording" : "core";
+						await this.plugin.saveSettings();
+					});
+			});
+
 		// --- Meeting notes ---
 		new Setting(containerEl).setName("Notes").setHeading();
 
@@ -148,11 +210,11 @@ export class MeetingDetectorSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("File name format")
 			.setDesc(
-				"Format string for the note file name, e.g. `YYYY-MM-DD_HHmm_Meeting`."
+				"For example `YYYY-MM-DD_{{title}}`. Date tokens: YYYY MM DD HH mm ss (also YY MMM MMMM Do ddd dddd hh). {{title}} is the title from the popup. Text in [brackets] is kept as is."
 			)
 			.addText((text) =>
 				text
-					.setPlaceholder("e.g. `YYYY-MM-DD_HHmm_Meeting`")
+					.setPlaceholder("YYYY-MM-DD_{{title}}")
 					.setValue(this.plugin.settings.noteFileNameFormat)
 					.onChange(async (value) => {
 						this.plugin.settings.noteFileNameFormat = value;

@@ -1,7 +1,7 @@
 {
 	"id": "meeting-detector",
 	"name": "Meeting Detector",
-	"version": "0.1.1",
+	"version": "0.2.0",
 	"minAppVersion": "1.4.0",
 	"description": "Auto-detect online meetings (Zoom, Google Meet, Teams) and prompt to record or create meeting notes.",
 	"author": "yut0takagi",

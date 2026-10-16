@@ -1,8 +1,17 @@
 /* global activeWindow -- Obsidian exposes this on the active (possibly popped-out) window; required by obsidianmd/commands timer rules */
 import { execFile } from "child_process";
+import {
+	checkAnyProcess,
+	checkGoogleMeet,
+	ExecFileFn,
+	ProcessState,
+	TEAMS_PROCESS_NAMES,
+	ZOOM_PROCESS_NAMES,
+} from "./process-checks";
+import { MeetingTracker, type MeetingApp } from "./meeting-tracker";
 import type { MeetingDetectorSettings } from "./settings";
 
-export type MeetingApp = "Zoom" | "Google Meet" | "Microsoft Teams";
+export type { MeetingApp };
 
 export interface MeetingEvent {
 	app: MeetingApp;
@@ -11,76 +20,72 @@ export interface MeetingEvent {
 
 type MeetingCallback = (event: MeetingEvent) => void;
 
-const OSASCRIPT_GET_BROWSER_TABS = `
-set meetFound to false
-tell application "System Events"
-	set browserNames to {"Google Chrome", "Brave Browser", "Microsoft Edge", "Arc", "Safari"}
-	repeat with browserName in browserNames
-		if exists (process browserName) then
-			tell application browserName
-				try
-					if browserName as text is "Safari" then
-						repeat with w in windows
-							repeat with t in tabs of w
-								if name of t contains "Meet" and URL of t contains "meet.google.com" then
-									set meetFound to true
-									exit repeat
-								end if
-							end repeat
-							if meetFound then exit repeat
-						end repeat
-					else
-						repeat with w in windows
-							repeat with t in tabs of w
-								if title of t contains "Meet" and URL of t contains "meet.google.com" then
-									set meetFound to true
-									exit repeat
-								end if
-							end repeat
-							if meetFound then exit repeat
-						end repeat
-					end if
-				end try
-			end tell
-		end if
-		if meetFound then exit repeat
-	end repeat
-end tell
-if meetFound then
-	return "true"
-else
-	return "false"
-end if
-`;
+export type MonitorSettings = Pick<
+	MeetingDetectorSettings,
+	| "pluginEnabled"
+	| "enableZoom"
+	| "enableGoogleMeet"
+	| "enableTeams"
+	| "pollingIntervalSeconds"
+	| "ignoreRunningAtStartup"
+>;
+
+/** 3 misses = 15 seconds at the default 5-second interval. */
+export const MISSES_TO_END = 3;
+
+export interface MonitorDeps {
+	exec: ExecFileFn;
+	setInterval: (handler: () => void, ms: number) => number;
+	clearInterval: (id: number) => void;
+}
+
+function defaultDeps(): MonitorDeps {
+	return {
+		exec: execFile as unknown as ExecFileFn,
+		setInterval: (handler, ms) => activeWindow.setInterval(handler, ms),
+		clearInterval: (id) => activeWindow.clearInterval(id),
+	};
+}
 
 export class ProcessMonitor {
 	private intervalId: number | null = null;
-	private activeApps: Set<MeetingApp> = new Set();
-	private dismissedApps: Set<MeetingApp> = new Set();
+	private tracker: MeetingTracker;
 	private callback: MeetingCallback;
-	private getSettings: () => MeetingDetectorSettings;
+	private getSettings: () => MonitorSettings;
+	private deps: MonitorDeps;
+	private polling = false;
+	/** Only the very first poll after the plugin loaded counts as the startup check. */
+	private startupCheckDone = false;
 
 	constructor(
-		getSettings: () => MeetingDetectorSettings,
-		callback: MeetingCallback
+		getSettings: () => MonitorSettings,
+		callback: MeetingCallback,
+		deps: Partial<MonitorDeps> = {}
 	) {
 		this.getSettings = getSettings;
 		this.callback = callback;
+		this.deps = { ...defaultDeps(), ...deps };
+		this.tracker = new MeetingTracker({
+			missesToEnd: MISSES_TO_END,
+			get ignoreRunningAtStartup() {
+				return getSettings().ignoreRunningAtStartup;
+			},
+		});
 	}
 
 	start(): void {
-		if (this.intervalId) return;
+		if (this.intervalId !== null) return;
 		const settings = this.getSettings();
 		void this.poll();
-		this.intervalId = activeWindow.setInterval(
+		this.intervalId = this.deps.setInterval(
 			() => void this.poll(),
 			settings.pollingIntervalSeconds * 1000
 		);
 	}
 
 	stop(): void {
-		if (this.intervalId) {
-			activeWindow.clearInterval(this.intervalId);
+		if (this.intervalId !== null) {
+			this.deps.clearInterval(this.intervalId);
 			this.intervalId = null;
 		}
 	}
@@ -90,91 +95,52 @@ export class ProcessMonitor {
 		this.start();
 	}
 
-	clearDismissed(app?: MeetingApp): void {
-		if (app) {
-			this.dismissedApps.delete(app);
-		} else {
-			this.dismissedApps.clear();
-		}
-	}
-
 	dismiss(app: MeetingApp): void {
-		this.dismissedApps.add(app);
+		this.tracker.dismiss(app);
 	}
 
-	private async poll(): Promise<void> {
+	/** "Check for meetings now": announce meetings that are still running again, then poll. */
+	async checkNow(): Promise<void> {
+		this.tracker.reset();
+		this.startupCheckDone = true;
+		await this.poll();
+	}
+
+	async poll(): Promise<void> {
 		const settings = this.getSettings();
-		if (!settings.pluginEnabled) return;
+		if (!settings.pluginEnabled || this.polling) return;
+		this.polling = true;
+		try {
+			const isStartupCheck = !this.startupCheckDone;
+			const checks: Promise<{ app: MeetingApp; state: ProcessState }>[] = [];
+			const exec = this.deps.exec;
 
-		const checks: Promise<{ app: MeetingApp; running: boolean }>[] = [];
-
-		if (settings.enableZoom) {
-			checks.push(
-				this.checkProcess("zoom.us").then((running) => ({
-					app: "Zoom" as MeetingApp,
-					running,
-				}))
-			);
-		}
-
-		if (settings.enableTeams) {
-			checks.push(
-				this.checkProcess("Teams").then((running) => ({
-					app: "Microsoft Teams" as MeetingApp,
-					running,
-				}))
-			);
-		}
-
-		if (settings.enableGoogleMeet) {
-			checks.push(
-				this.checkGoogleMeet().then((running) => ({
-					app: "Google Meet" as MeetingApp,
-					running,
-				}))
-			);
-		}
-
-		const results = await Promise.all(checks);
-
-		for (const { app, running } of results) {
-			const wasActive = this.activeApps.has(app);
-
-			if (running && !wasActive) {
-				this.activeApps.add(app);
-				if (!this.dismissedApps.has(app)) {
-					this.callback({ app, type: "start" });
-				}
-			} else if (!running && wasActive) {
-				this.activeApps.delete(app);
-				this.dismissedApps.delete(app);
-				this.callback({ app, type: "end" });
+			if (settings.enableZoom) {
+				checks.push(
+					checkAnyProcess(exec, ZOOM_PROCESS_NAMES).then((state) => ({ app: "Zoom" as const, state }))
+				);
 			}
+			if (settings.enableTeams) {
+				checks.push(
+					checkAnyProcess(exec, TEAMS_PROCESS_NAMES).then((state) => ({
+						app: "Microsoft Teams" as const,
+						state,
+					}))
+				);
+			}
+			if (settings.enableGoogleMeet) {
+				checks.push(checkGoogleMeet(exec).then((state) => ({ app: "Google Meet" as const, state })));
+			}
+
+			const results = await Promise.all(checks);
+			this.startupCheckDone = true;
+
+			for (const { app, state } of results) {
+				const type = this.tracker.update(app, state, isStartupCheck);
+				if (type) this.callback({ app, type });
+			}
+		} finally {
+			this.polling = false;
 		}
-	}
-
-	private checkProcess(processName: string): Promise<boolean> {
-		return new Promise((resolve) => {
-			execFile("pgrep", ["-x", processName], (error) => {
-				resolve(!error);
-			});
-		});
-	}
-
-	private checkGoogleMeet(): Promise<boolean> {
-		return new Promise((resolve) => {
-			execFile(
-				"osascript",
-				["-e", OSASCRIPT_GET_BROWSER_TABS],
-				{ timeout: 5000 },
-				(error, stdout) => {
-					if (error) {
-						resolve(false);
-						return;
-					}
-					resolve(stdout.trim() === "true");
-				}
-			);
-		});
 	}
 }
