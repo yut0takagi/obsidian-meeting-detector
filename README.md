@@ -1,5 +1,9 @@
 # Meeting Detector - Obsidian Plugin
 
+![Downloads](https://raw.githubusercontent.com/yut0takagi/obsidian-meeting-detector/main/.github/stats/badge.svg)
+
+![Download history](https://raw.githubusercontent.com/yut0takagi/obsidian-meeting-detector/main/.github/stats/downloads.svg)
+
 Automatically detect online meetings (Zoom, Google Meet, Microsoft Teams) and prompt you to start recording or create meeting notes.
 
 ![Demo](https://img.shields.io/badge/platform-macOS-blue)
